@@ -146,10 +146,8 @@ REST_FRAMEWORK = {
 }
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://localhost:8000',
+                              cast=lambda v: [s.strip() for s in v.split(',')])
 
 # Create logs directory if it doesn't exist
 LOGS_DIR = BASE_DIR / 'logs'
