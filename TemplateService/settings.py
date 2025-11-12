@@ -57,7 +57,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
-    'TemplateService.middleware.DBConnectionMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -241,9 +240,13 @@ WHITENOISE_KEEP_ONLY_HASHED_FILES = False
 
 # Add these caching headers for better performance (1 year for hashed files)
 WHITENOISE_MAX_AGE = 63072000
-WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: ('.' in url.split('/')[-1])
+
+
+def WHITENOISE_IMMUTABLE_FILE_TEST(
+    path, url): return ('.' in url.split('/')[-1])
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
