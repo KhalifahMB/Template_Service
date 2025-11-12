@@ -3,9 +3,10 @@ from celery import Celery
 from django.conf import settings
 
 # Set the default Django settings module
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'TemplateService.settings')
 
-app = Celery('template_service')
+# Name the Celery app after the Django project package for clarity.
+app = Celery('TemplateService')
 
 # Using a string here means the worker doesn't have to serialize
 # the configuration object to child processes.
