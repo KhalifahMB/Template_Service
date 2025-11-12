@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    "whitenoise.runserver_nostatic",
     'django.contrib.staticfiles',
 
     # Third party apps
@@ -114,7 +115,7 @@ else:
 # Use a small circuit-breaker wrapper that falls back to locmem when Redis is unreachable.
 CACHES = {
     'default': {
-        'BACKEND': 'TemplateService.cache_backends.RedisFallbackCache',
+        'BACKEND': 'django_redis.cache.RedisCache',
         'LOCATION': config('REDIS_URL', default='redis://redis:6379/0'),
         # Backend-specific params passed to our wrapper; it will instantiate the
         # real primary and fallback backends.
