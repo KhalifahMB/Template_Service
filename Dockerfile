@@ -17,7 +17,5 @@ COPY . .
 # Create logs directory
 RUN mkdir -p /app/logs
 
-# Run migrations, collect static files, and start server with gunicorn
-CMD python manage.py migrate && \
-    python manage.py collectstatic --noinput && \
-    gunicorn TemplateService.wsgi --bind 0.0.0.0:8080 --workers 3 --worker-class sync --timeout 300 --keep-alive 75 --max-requests 1000 --max-requests-jitter 100 --access-logfile - --error-logfile -
+# start server with gunicorn
+CMD gunicorn TemplateService.wsgi --bind 0.0.0.0:8080 --workers 3 --worker-class sync --timeout 300 --keep-alive 75 --max-requests 1000 --max-requests-jitter 100 --access-logfile - --error-logfile -
