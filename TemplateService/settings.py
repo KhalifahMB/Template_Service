@@ -57,6 +57,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'TemplateService.middleware.DBConnectionMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -110,14 +111,20 @@ else:
     }
 
 
-# Redis Cache Configuration
+# Redis + fallback Cache Configuration
+# Use a small circuit-breaker wrapper that falls back to locmem when Redis is unreachable.
 CACHES = {
     'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
+        'BACKEND': 'TemplateService.cache_backends.RedisFallbackCache',
         'LOCATION': config('REDIS_URL', default='redis://redis:6379/0'),
+        # Backend-specific params passed to our wrapper; it will instantiate the
+        # real primary and fallback backends.
+        'PRIMARY_BACKEND': 'django_redis.cache.RedisCache',
+        'FALLBACK_BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'COOLDOWN': int(config('CACHE_PRIMARY_COOLDOWN', default=30)),
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
+        },
     }
 }
 
@@ -221,10 +228,20 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 # Use WhiteNoise compressed manifest storage in production to serve
 # gzipped and hashed static files and detect missing file references at
 # collectstatic time.
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# WhiteNoise Configuration for better static file handling
+WHITENOISE_AUTOREFRESH = False
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_KEEP_ONLY_HASHED_FILES = False
+
+# Add these caching headers for better performance (1 year for hashed files)
+WHITENOISE_MAX_AGE = 63072000
+WHITENOISE_IMMUTABLE_FILE_TEST = lambda path, url: ('.' in url.split('/')[-1])
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
