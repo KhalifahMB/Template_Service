@@ -13,32 +13,33 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 from decouple import config
-from datetime import timedelta
-import logging
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
-
+BASE_DIR = Path(_file_).resolve().parent.parent
 
 # Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config("SECRET_KEY", default="your-secret-key-here")
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG", default=False, cast=bool)
-
-ALLOWED_HOSTS = config(
-    "ALLOWED_HOSTS",
-    default="localhost,127.0.0.1",
-    cast=lambda v: [s.strip() for s in v.split(",")],
+SECRET_KEY = config(
+    "SECRET_KEY", default="django-insecure-fallback-key-for-development"
 )
 
+DEBUG = config("DEBUG", default=False, cast=bool)
+
+# Fixed ALLOWED_HOSTS for Railway
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    ".railway.app",
+    ".up.railway.app",
+    "template-service-production.up.railway.app",  # Add your specific Railway URL
+]
+
+# Parse additional hosts from environment
+allowed_hosts_env = config("ALLOWED_HOSTS", default="")
+if allowed_hosts_env:
+    ALLOWED_HOSTS.extend([host.strip() for host in allowed_hosts_env.split(",")])
 
 # Application definition
-
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -87,59 +88,51 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "TemplateService.wsgi.application"
 
+# Database - Simplified for Railway
+DATABASES = {
+    "default": dj_database_url.config(
+        default=config("DATABASE_URL", default="sqlite:///db.sqlite3"),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
+}
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-if DEBUG:
-    DATABASES = {
+# Simplified Cache Configuration for Railway
+redis_url = config("REDIS_URL", default=None)
+if redis_url:
+    CACHES = {
         "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": "TemplateService",
-            "USER": "postgres",
-            "PASSWORD": "Khalifah@8442",
-            "HOST": "localhost",
-            "PORT": 5432,
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": redis_url,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "SSL_CERT_REQS": None,  # Important for Railway Redis
+            },
         }
     }
 else:
-    DATABASES = {
-        "default": dj_database_url.config(
-            default=config("DATABASE_URL"), conn_max_age=600
-        ),
+    # Fallback to local memory cache
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "unique-snowflake",
+        }
     }
-
-
-# Redis + fallback Cache Configuration
-# Use a small circuit-breaker wrapper that falls back to locmem when Redis is unreachable.
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": config("REDIS_URL", default="redis://redis:6379/0"),
-        # Backend-specific params passed to our wrapper; it will instantiate the
-        # real primary and fallback backends.
-        "PRIMARY_BACKEND": "django_redis.cache.RedisCache",
-        "FALLBACK_BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "COOLDOWN": int(config("CACHE_PRIMARY_COOLDOWN", default=30)),
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
-    }
-}
 
 # Celery Configuration
-CELERY_BROKER_URL = config("REDIS_URL", default="redis://localhost:6379/1")
-CELERY_RESULT_BACKEND = config("REDIS_URL", default="redis://localhost:6379/2")
+CELERY_BROKER_URL = config("REDIS_URL", default="redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = config("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "UTC"
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
-CELERY_RESULT_EXPIRES = 3600  # 1 hour
+CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_RESULT_EXPIRES = 3600
 
 # Celery Beat Configuration
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
@@ -152,17 +145,15 @@ REST_FRAMEWORK = {
 }
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = config(
-    "CORS_ALLOWED_ORIGINS",
-    default="http://localhost:3000,http://localhost:8000",
-    cast=lambda v: [s.strip() for s in v.split(",")],
-)
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 
-# Create logs directory if it doesn't exist
-LOGS_DIR = BASE_DIR / "logs"
-LOGS_DIR.mkdir(exist_ok=True)
+# Allow all origins in development
+CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=DEBUG, cast=bool)
 
-# Logging Configuration
+# Simplified Logging for Railway - Console only
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -173,30 +164,22 @@ LOGGING = {
         },
     },
     "handlers": {
-        "file": {
+        "console": {
             "level": "INFO",
-            # Use rotating file handler to prevent the logfile from growing indefinitely
-            "class": "logging.handlers.RotatingFileHandler",
-            "filename": os.path.join(LOGS_DIR, "template_service.log"),
-            # rotate after 5MB, keep 5 backups
-            "maxBytes": 5 * 1024 * 1024,
-            "backupCount": 5,
+            "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
     },
     "root": {
-        "handlers": ["file"],
+        "handlers": ["console"],
         "level": "INFO",
     },
 }
 
-
-# Cache time to live is 30 minutes (for templates)
+# Cache time to live
 CACHE_TTL = 60 * 30
 
 # Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -212,62 +195,36 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
 LANGUAGE_CODE = "en-us"
-
 TIME_ZONE = "UTC"
-
 USE_I18N = True
-
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-
+# Static files - Simplified for Railway
 STATIC_URL = "/static/"
-STATIC_ROOT_DIR = BASE_DIR / "staticfiles/"
-STATIC_ROOT_DIR.mkdir(exist_ok=True)
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-STATIC_ROOT = STATIC_ROOT_DIR
-
-STATIC_DIR = BASE_DIR / "static/"
-STATIC_DIR.mkdir(exist_ok=True)
-
-STATICFILES_DIRS = [
-    STATIC_DIR,
-]
-
-
-# Use WhiteNoise compressed manifest storage in production to serve
-# gzipped and hashed static files and detect missing file references at
-# collectstatic time.
+# WhiteNoise configuration optimized for Railway
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-# Static files configuration
-STATICFILES_FINDERS = [
-    "django.contrib.staticfiles.finders.FileSystemFinder",
-    "django.contrib.staticfiles.finders.AppDirectoriesFinder",
-]
 
+# Disable WhiteNoise autorefresh in production
+WHITENOISE_AUTOREFRESH = config("WHITENOISE_AUTOREFRESH", default=DEBUG, cast=bool)
+WHITENOISE_USE_FINDERS = config("WHITENOISE_USE_FINDERS", default=DEBUG, cast=bool)
 
-# WhiteNoise Configuration for better static file handling
-WHITENOISE_AUTOREFRESH = False
-WHITENOISE_USE_FINDERS = True
-WHITENOISE_KEEP_ONLY_HASHED_FILES = False
+# Suppress the "No directory at" warning
+import warnings
 
-# Add these caching headers for better performance (1 year for hashed files)
-WHITENOISE_MAX_AGE = 63072000
-
-
-def WHITENOISE_IMMUTABLE_FILE_TEST(path, url):
-    return "." in url.split("/")[-1]
-
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
+warnings.filterwarnings(
+    "ignore", message="No directory at", module="django.core.handlers.base"
+)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Security settings for production
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
