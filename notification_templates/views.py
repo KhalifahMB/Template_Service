@@ -1,21 +1,23 @@
-from .services import TemplateService, TemplateVersionService
+import logging
+
+from django.core.cache import cache
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from .models import NotificationTemplate, TemplateRenderLog
 from .serializers import (
     NotificationTemplateSerializer,
     TemplateCreateSerializer,
-    TemplateRenderSerializer,
-    TemplateRenderResponseSerializer,
     TemplateRenderLogSerializer,
+    TemplateRenderResponseSerializer,
+    TemplateRenderSerializer,
 )
-from .models import NotificationTemplate, TemplateRenderLog
-import logging
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
-from django.core.cache import cache
-from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
+from .services import TemplateService, TemplateVersionService
 
 logger = logging.getLogger(__name__)
 
@@ -167,42 +169,48 @@ class TemplateViewSet(viewsets.ModelViewSet):
         return super().retrieve(request, *args, **kwargs)
 
     @swagger_auto_schema(
-        method='post',
+        method="post",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                'template_name': openapi.Schema(type=openapi.TYPE_STRING),
-                'language': openapi.Schema(type=openapi.TYPE_STRING, default='en'),
-                'template_type': openapi.Schema(type=openapi.TYPE_STRING, default='email'),
-                'context': openapi.Schema(type=openapi.TYPE_OBJECT),
-                'requested_by': openapi.Schema(type=openapi.TYPE_STRING)
-            }
+                "template_name": openapi.Schema(type=openapi.TYPE_STRING),
+                "language": openapi.Schema(type=openapi.TYPE_STRING, default="en"),
+                "template_type": openapi.Schema(
+                    type=openapi.TYPE_STRING, default="email"
+                ),
+                "context": openapi.Schema(type=openapi.TYPE_OBJECT),
+                "requested_by": openapi.Schema(type=openapi.TYPE_STRING),
+            },
         ),
-        responses={202: openapi.Response('Task accepted',
-                                         schema=openapi.Schema(
-                                             type=openapi.TYPE_OBJECT,
-                                             properties={
-                                                 'task_id': openapi.Schema(type=openapi.TYPE_STRING),
-                                                 'status': openapi.Schema(type=openapi.TYPE_STRING),
-                                                 'message': openapi.Schema(type=openapi.TYPE_STRING)
-                                             }
-                                         ))
-                   })
-    @action(detail=False, methods=['post'], url_path='render-async')
+        responses={
+            202: openapi.Response(
+                "Task accepted",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "task_id": openapi.Schema(type=openapi.TYPE_STRING),
+                        "status": openapi.Schema(type=openapi.TYPE_STRING),
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            )
+        },
+    )
+    @action(detail=False, methods=["post"], url_path="render-async")
     def render_async(self, request):
         """Render template asynchronously using Celery."""
         from .services import CeleryService
 
-        template_name = request.data.get('template_name')
-        context = request.data.get('context', {})
-        language = request.data.get('language', 'en')
-        template_type = request.data.get('template_type', 'email')
-        requested_by = request.data.get('requested_by')
+        template_name = request.data.get("template_name")
+        context = request.data.get("context", {})
+        language = request.data.get("language", "en")
+        template_type = request.data.get("template_type", "email")
+        requested_by = request.data.get("requested_by")
 
         if not template_name:
             return Response(
-                {'error': 'template_name is required'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "template_name is required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
@@ -210,68 +218,73 @@ class TemplateViewSet(viewsets.ModelViewSet):
                 template_name, context, language, template_type, requested_by
             )
 
-            return Response({
-                'task_id': task_id,
-                'status': 'accepted',
-                'message': f'Template rendering started for {template_name}',
-                'monitor_url': f'/api/v1/tasks/{task_id}/status/'
-            }, status=status.HTTP_202_ACCEPTED)
+            return Response(
+                {
+                    "task_id": task_id,
+                    "status": "accepted",
+                    "message": f"Template rendering started for {template_name}",
+                    "monitor_url": f"/api/v1/tasks/{task_id}/status/",
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
 
         except Exception as e:
             logger.error(f"Error triggering async render: {str(e)}")
             return Response(
-                {'error': 'Failed to start async rendering'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Failed to start async rendering"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     @swagger_auto_schema(
-        method='post',
+        method="post",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                'render_requests': openapi.Schema(
+                "render_requests": openapi.Schema(
                     type=openapi.TYPE_ARRAY,
-                    items=openapi.Schema(type=openapi.TYPE_OBJECT)
+                    items=openapi.Schema(type=openapi.TYPE_OBJECT),
                 )
-            }
+            },
         ),
-        responses={202: openapi.Response('Bulk task accepted')}
+        responses={202: openapi.Response("Bulk task accepted")},
     )
-    @action(detail=False, methods=['post'], url_path='bulk-render')
+    @action(detail=False, methods=["post"], url_path="bulk-render")
     def bulk_render(self, request):
         """Bulk render multiple templates asynchronously."""
         from .services import CeleryService
 
-        render_requests = request.data.get('render_requests', [])
+        render_requests = request.data.get("render_requests", [])
 
         if not render_requests:
             return Response(
-                {'error': 'render_requests is required'},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "render_requests is required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
             task_id = CeleryService.trigger_bulk_render(render_requests)
 
-            return Response({
-                'task_id': task_id,
-                'status': 'accepted',
-                'message': f'Bulk rendering started for {len(render_requests)} templates',
-                'monitor_url': f'/api/v1/tasks/{task_id}/status/'
-            }, status=status.HTTP_202_ACCEPTED)
+            return Response(
+                {
+                    "task_id": task_id,
+                    "status": "accepted",
+                    "message": f"Bulk rendering started for {len(render_requests)} templates",
+                    "monitor_url": f"/api/v1/tasks/{task_id}/status/",
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
 
         except Exception as e:
             logger.error(f"Error triggering bulk render: {str(e)}")
             return Response(
-                {'error': 'Failed to start bulk rendering'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Failed to start bulk rendering"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     @swagger_auto_schema(
-        method='post',
-        responses={202: openapi.Response('Cache warmup started')}
+        method="post", responses={202: openapi.Response("Cache warmup started")}
     )
-    @action(detail=False, methods=['post'], url_path='warm-cache')
+    @action(detail=False, methods=["post"], url_path="warm-cache")
     def warm_cache(self, request):
         """Trigger cache warmup task."""
         from .services import CeleryService
@@ -279,17 +292,20 @@ class TemplateViewSet(viewsets.ModelViewSet):
         try:
             task_id = CeleryService.trigger_cache_warmup()
 
-            return Response({
-                'task_id': task_id,
-                'status': 'accepted',
-                'message': 'Cache warmup started'
-            }, status=status.HTTP_202_ACCEPTED)
+            return Response(
+                {
+                    "task_id": task_id,
+                    "status": "accepted",
+                    "message": "Cache warmup started",
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
 
         except Exception as e:
             logger.error(f"Error triggering cache warmup: {str(e)}")
             return Response(
-                {'error': 'Failed to start cache warmup'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Failed to start cache warmup"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
