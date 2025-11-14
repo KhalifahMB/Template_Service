@@ -1,7 +1,8 @@
-import re
 import logging
-from typing import Dict, Any
-from django.template import Template, Context, Engine
+import re
+from typing import Any, Dict
+
+from django.template import Context, Engine, Template
 from django.template.exceptions import TemplateSyntaxError
 
 logger = logging.getLogger(__name__)

@@ -1,6 +1,8 @@
 import logging
-from django.core.cache import cache
+
 from django.conf import settings
+from django.core.cache import cache
+
 from .models import NotificationTemplate, TemplateRenderLog
 from .utils import TemplateRenderer
 
@@ -42,8 +44,7 @@ class TemplateService:
         """Clear cache for a specific template."""
         cache_key = f"template_{name}_{language}_{template_type}"
         cache.delete(cache_key)
-        logger.info(
-            f"Cleared cache for template {name} ({language}, {template_type})")
+        logger.info(f"Cleared cache for template {name} ({language}, {template_type})")
 
     @staticmethod
     def render_template(
@@ -51,8 +52,7 @@ class TemplateService:
     ):
         """Render template with variables substitution."""
         try:
-            template = TemplateService.get_template(
-                name, language, template_type)
+            template = TemplateService.get_template(name, language, template_type)
 
             if not template:
                 raise ValueError(f"Template not found: {name} ({language})")
@@ -70,8 +70,7 @@ class TemplateService:
                 requested_by=requested_by,
             )
 
-            logger.info(
-                f"Successfully rendered template: {name} for {requested_by}")
+            logger.info(f"Successfully rendered template: {name} for {requested_by}")
             return result
 
         except Exception as e:
@@ -123,8 +122,7 @@ class TemplateVersionService:
         if not current_template:
             raise ValueError(f"Template not found: {template_name}")
 
-        new_version = current_template.create_new_version(
-            subject, body, description)
+        new_version = current_template.create_new_version(subject, body, description)
         return new_version
 
     @staticmethod
@@ -147,8 +145,7 @@ class TemplateVersionService:
         target_template.save()
 
         # Clear cache
-        TemplateService.clear_template_cache(
-            template_name, language, template_type)
+        TemplateService.clear_template_cache(template_name, language, template_type)
 
         logger.info(f"Rolled back {template_name} to version {version}")
         return target_template
@@ -158,7 +155,9 @@ class CeleryService:
     """Service for triggering Celery tasks."""
 
     @staticmethod
-    def trigger_async_render(template_name, context, language='en', template_type='email', requested_by=None):
+    def trigger_async_render(
+        template_name, context, language="en", template_type="email", requested_by=None
+    ):
         """Trigger asynchronous template rendering."""
         from .tasks import render_template_async
 
@@ -167,11 +166,12 @@ class CeleryService:
             context=context,
             language=language,
             template_type=template_type,
-            requested_by=requested_by
+            requested_by=requested_by,
         )
 
         logger.info(
-            f"Triggered async render task {task.id} for template {template_name}")
+            f"Triggered async render task {task.id} for template {template_name}"
+        )
         return task.id
 
     @staticmethod
@@ -182,7 +182,8 @@ class CeleryService:
         task = bulk_render_templates.delay(render_requests)
 
         logger.info(
-            f"Triggered bulk render task {task.id} for {len(render_requests)} templates")
+            f"Triggered bulk render task {task.id} for {len(render_requests)} templates"
+        )
         return task.id
 
     @staticmethod
@@ -202,6 +203,5 @@ class CeleryService:
 
         task = update_template_cache_for_template.delay(template_id)
 
-        logger.info(
-            f"Triggered cache update task {task.id} for template {template_id}")
+        logger.info(f"Triggered cache update task {task.id} for template {template_id}")
         return task.id

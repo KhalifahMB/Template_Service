@@ -1,8 +1,9 @@
-from django.db import models
-import uuid
 import logging
 import re
+import uuid
+
 from django.core.exceptions import ValidationError
+from django.db import models
 
 logger = logging.getLogger(__name__)
 

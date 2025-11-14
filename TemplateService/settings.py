@@ -31,11 +31,15 @@ SECRET_KEY = config("SECRET_KEY", default="your-secret-key-here")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config("DEBUG", default=False, cast=bool)
 
-# ALLOWED_HOSTS = config(
-#     "ALLOWED_HOSTS",
-#     default="localhost,127.0.0.1",
-#     cast=lambda v: [s.strip() for s in v.split(",")],
-# )
+ALLOWED_HOSTS = config(
+    "ALLOWED_HOSTS",
+    default="localhost,127.0.0.1",
+    cast=lambda v: [s.strip() for s in v.split(",")],
+)
+
+CSRF_TRUSTED_ORIGINS = config(
+    "CSRF_TRUSTED_ORIGINS", cast=lambda v: [s.strip() for s in v.split(",")]
+)
 
 
 # Application definition
@@ -57,11 +61,19 @@ INSTALLED_APPS = [
     "notification_templates",
 ]
 
+# CORS Configuration
+CORS_ALLOWED_ORIGINS = config(
+    "CORS_ALLOWED_ORIGINS", cast=lambda v: [s.strip() for s in v.split(",")]
+)
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -159,21 +171,6 @@ REST_FRAMEWORK = {
     ],
 }
 
-CORS_ALLOWED_ORIGINS = [
-    "https://localhost:8000",
-    "https://127.0.0.1:8000",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-]
-
-CORS_ALLOW_ALL_ORIGINS = DEBUG
-# CORS Configuration
-# CORS_ALLOWED_ORIGINS = config(
-#     "CORS_ALLOWED_ORIGINS",
-#     default="http://localhost:3000,http://localhost:8000",
-#     cast=lambda v: [s.strip() for s in v.split(",")],
-# )
-#
 
 # Create logs directory if it doesn't exist
 LOGS_DIR = BASE_DIR / "logs"
@@ -251,28 +248,13 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Use WhiteNoise compressed manifest storage in production to serve
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-# # Static files configuration
-# STATICFILES_FINDERS = [
-#     "django.contrib.staticfiles.finders.FileSystemFinder",
-#     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
-# ]
 
-
-# WhiteNoise Configuration for better static file handling
-WHITENOISE_AUTOREFRESH = False
-WHITENOISE_USE_FINDERS = True
-WHITENOISE_KEEP_ONLY_HASHED_FILES = False
-
-# Add these caching headers for better performance (1 year for hashed files)
-WHITENOISE_MAX_AGE = 63072000
-
-
-def WHITENOISE_IMMUTABLE_FILE_TEST(path, url):
-    return "." in url.split("/")[-1]
-
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    }
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
