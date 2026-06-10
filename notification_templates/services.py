@@ -3,7 +3,7 @@ import logging
 from django.conf import settings
 from django.core.cache import cache
 
-from .models import NotificationTemplate, TemplateRenderLog
+from .models import NotificationTemplate, TemplateRenderLog, TemplateContent
 from .utils import TemplateRenderer
 
 logger = logging.getLogger(__name__)
@@ -122,7 +122,35 @@ class TemplateVersionService:
         if not current_template:
             raise ValueError(f"Template not found: {template_name}")
 
-        new_version = current_template.create_new_version(subject, body, description)
+        # Deactivate current version
+        NotificationTemplate.objects.filter(
+            name=current_template.name,
+            language=current_template.language,
+            template_type=current_template.template_type,
+            is_active=True,
+        ).update(is_active=False)
+
+        # Create new version
+        new_version = NotificationTemplate.objects.create(
+            name=current_template.name,
+            language=current_template.language,
+            template_type=current_template.template_type,
+            version=current_template.version + 1,
+            description=description or current_template.description,
+            is_active=True,
+        )
+
+        # Create version content
+        TemplateContent.objects.create(template=new_version, subject=subject, body=body)
+
+        # Clear cache for this template
+        TemplateService.clear_template_cache(
+            current_template.name, current_template.language, current_template.template_type
+        )
+
+        logger.info(
+            f"Created new version {new_version.version} for template {current_template.name}"
+        )
         return new_version
 
     @staticmethod

@@ -90,41 +90,6 @@ class NotificationTemplate(models.Model):
         """Get all versions of a template."""
         return cls.objects.filter(name=name, language=language).order_by("-version")
 
-    def create_new_version(self, subject, body, description=None):
-        """Create a new version of this template."""
-        from .services import TemplateService
-
-        # Deactivate current version
-        NotificationTemplate.objects.filter(
-            name=self.name,
-            language=self.language,
-            template_type=self.template_type,
-            is_active=True,
-        ).update(is_active=False)
-
-        # Create new version
-        new_version = NotificationTemplate.objects.create(
-            name=self.name,
-            language=self.language,
-            template_type=self.template_type,
-            version=self.version + 1,
-            description=description or self.description,
-            is_active=True,
-        )
-
-        # Create version content
-        TemplateContent.objects.create(template=new_version, subject=subject, body=body)
-
-        # Clear cache for this template
-        TemplateService.clear_template_cache(
-            self.name, self.language, self.template_type
-        )
-
-        logger.info(
-            f"Created new version {new_version.version} for template {self.name}"
-        )
-        return new_version
-
 
 class TemplateContent(models.Model):
     """Stores the actual content of each template version."""

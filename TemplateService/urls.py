@@ -24,7 +24,7 @@ from rest_framework import permissions
 
 
 def health_check(request):
-    return JsonResponse({"status": "ok", "service": "user_service"}, status=200)
+    return JsonResponse({"status": "ok", "service": "Template_Service"}, status=200)
 
 
 schema_view = get_schema_view(
@@ -41,6 +41,7 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/v1/health/", health_check, name="health"),
     path("api/v1/", include("notification_templates.urls")),
     # Swagger Documentation
     path(
@@ -48,6 +49,6 @@ urlpatterns = [
         schema_view.with_ui("swagger", cache_timeout=0),
         name="schema-swagger-ui",
     ),
-    path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
-    path("health/", health_check, name="health"),
+    path("redoc/", schema_view.with_ui("redoc",
+         cache_timeout=0), name="schema-redoc"),
 ]

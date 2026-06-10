@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Environments
+.env
+myvenv/
+venv/
+
+# Git
+.git/
+.gitignore
+
+# Logs
+logs/
+
+# SQLite database
+*.sqlite3
+
+# Static files (usually collected during build)
+staticfiles/
+
+# Dockerfile itself and docker-compose
+Dockerfile
+docker-compose.yml

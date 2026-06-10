@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import NotificationTemplate, TemplateContent, TemplateRenderLog
+from .services import TemplateService, TemplateVersionService
 
 
 class TemplateContentSerializer(serializers.ModelSerializer):
@@ -57,7 +58,43 @@ class TemplateCreateSerializer(serializers.Serializer):
                 'Language code should be in format like "en" or "en-US"'
             )
         return value
+    
+    def create(self, validated_data):
+        """
+        Create a new template or a new version of an existing template.
+        """
+        name = validated_data["name"]
+        language = validated_data["language"]
+        template_type = validated_data["template_type"]
 
+        existing_template = TemplateService.get_template(
+            name, language, template_type, use_cache=False
+        )
+
+        if existing_template:
+            # Create new version
+            return TemplateVersionService.create_new_version(
+                name,
+                language,
+                template_type,
+                validated_data.get("subject", ""),
+                validated_data["body"],
+                validated_data.get("description"),
+            )
+        else:
+            # Create new template
+            template = NotificationTemplate.objects.create(
+                name=name,
+                language=language,
+                template_type=template_type,
+                description=validated_data.get("description"),
+            )
+            TemplateContent.objects.create(
+                template=template,
+                subject=validated_data.get("subject", ""),
+                body=validated_data["body"],
+            )
+            return template
 
 class TemplateUpdateSerializer(serializers.Serializer):
     subject = serializers.CharField(max_length=255, required=False, allow_blank=True)

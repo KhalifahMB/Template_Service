@@ -1,5 +1,7 @@
 .venv/
 venv/
+myvenv/
+.myvenv/
 .logs/
 logs/
 *.log

@@ -3,6 +3,7 @@ import logging
 from celery import shared_task
 from django.core.cache import cache
 from django.db import transaction
+from django.utils import timezone
 
 from .models import NotificationTemplate, TemplateRenderLog
 from .services import TemplateService
@@ -53,7 +54,6 @@ def cleanup_old_render_logs(days=30):
             logs_to_delete = TemplateRenderLog.objects.filter(
                 created_at__lt=cutoff_date
             )
-            count_before = logs_to_delete.count()
 
             # Delete in chunks to avoid large transactions
             deleted_count = 0

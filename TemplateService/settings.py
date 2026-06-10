@@ -10,9 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
-import logging
 import os
-from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
@@ -38,7 +36,9 @@ ALLOWED_HOSTS = config(
 )
 
 CSRF_TRUSTED_ORIGINS = config(
-    "CSRF_TRUSTED_ORIGINS", cast=lambda v: [s.strip() for s in v.split(",")]
+    "CSRF_TRUSTED_ORIGINS",
+    default="http://localhost:3000,http://localhost:8000",
+    cast=lambda v: [s.strip() for s in v.split(",")]
 )
 
 
@@ -63,10 +63,12 @@ INSTALLED_APPS = [
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = config(
-    "CORS_ALLOWED_ORIGINS", cast=lambda v: [s.strip() for s in v.split(",")]
+    "CORS_ALLOWED_ORIGINS",
+    default="http://localhost:3000,http://localhost:8000",
+    cast=lambda v: [s.strip() for s in v.split(",")]
 )
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 
 
 MIDDLEWARE = [
@@ -105,15 +107,15 @@ WSGI_APPLICATION = "TemplateService.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-if DEBUG:
+if DEBUG == "True":
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": "TemplateService",
-            "USER": "postgres",
-            "PASSWORD": "Khalifah@8442",
-            "HOST": "localhost",
-            "PORT": 5432,
+            "NAME": config("POSTGRES_DB"),
+            "USER": config("POSTGRES_USER"),
+            "PASSWORD": config("POSTGRES_PASSWORD"),
+            "HOST": config("POSTGRES_HOST"),
+            "PORT": config("POSTGRES_PORT"),
         }
     }
 else:
@@ -129,7 +131,7 @@ if DEBUG:
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": "redis://127.0.0.1:6379/1",
+            "LOCATION": "redis://redis:6379/0",
             "OPTIONS": {
                 "CLIENT_CLASS": "django_redis.client.DefaultClient",
             },

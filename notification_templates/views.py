@@ -1,6 +1,5 @@
 import logging
 
-from django.core.cache import cache
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from drf_yasg import openapi
@@ -25,62 +24,36 @@ logger = logging.getLogger(__name__)
 class TemplateViewSet(viewsets.ModelViewSet):
     """ViewSet for managing notification templates."""
 
-    queryset = NotificationTemplate.objects.filter(is_active=True).select_related(
-        "content"
-    )
+    queryset = NotificationTemplate.objects.all().select_related("content")
     serializer_class = NotificationTemplateSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action == "rollback":
+            return qs
+        return qs.filter(is_active=True)
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return TemplateCreateSerializer
+        return NotificationTemplateSerializer
+
     @swagger_auto_schema(
-        method="post",
         request_body=TemplateCreateSerializer,
         responses={201: NotificationTemplateSerializer},
     )
-    @action(detail=False, methods=["post"])
-    def create_template(self, request):
-        """Create a new template or new version if template exists."""
-        serializer = TemplateCreateSerializer(data=request.data)
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new template or a new version of an existing template.
+        """
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        data = serializer.validated_data
-        existing_template = TemplateService.get_template(
-            data["name"], data["language"], data["template_type"], use_cache=False
+        instance = serializer.save()
+        response_serializer = NotificationTemplateSerializer(instance)
+        headers = self.get_success_headers(response_serializer.data)
+        return Response(
+            response_serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
-
-        if existing_template:
-            # Create new version
-            new_version = TemplateVersionService.create_new_version(
-                data["name"],
-                data["language"],
-                data["template_type"],
-                data.get("subject", ""),
-                data["body"],
-                data.get("description"),
-            )
-            response_serializer = NotificationTemplateSerializer(new_version)
-            logger.info(
-                f"Created new version for template: {data['name']} ({data['language']}, {data['template_type']})"
-            )
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            # Create new template
-            template = NotificationTemplate.objects.create(
-                name=data["name"],
-                language=data["language"],
-                template_type=data["template_type"],
-                description=data.get("description"),
-            )
-
-            from .models import TemplateContent
-
-            TemplateContent.objects.create(
-                template=template, subject=data.get("subject", ""), body=data["body"]
-            )
-
-            response_serializer = NotificationTemplateSerializer(template)
-            logger.info(
-                f"Created new template: {data['name']} ({data['language']}, {data['template_type']})"
-            )
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
     @swagger_auto_schema(
         method="post",
@@ -125,7 +98,7 @@ class TemplateViewSet(viewsets.ModelViewSet):
             )
         },
     )
-    @action(detail=True, methods=["get"])
+    @action(detail=False, methods=["get"])
     def variables(self, request, pk=None):
         """Get available variables for a template."""
         template = self.get_object()

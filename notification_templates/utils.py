@@ -1,5 +1,4 @@
 import logging
-import re
 from typing import Any, Dict
 
 from django.template import Context, Engine, Template
